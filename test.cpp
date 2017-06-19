@@ -9,14 +9,27 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <atomic>
 #include "taskq.h"
 #include "chan.h"
 
 #define WRITE_COUNT 10000
 
+static std::atomic<int> gn(0);
+static thread_local int g_localn = 0;
+
+static void Init() {
+    g_localn = gn++;
+    printf("init localn: %d\n", g_localn);
+}
+
+static void Exit() {
+    printf("exit localn: %d\n", (int)g_localn);
+}
+
 int main(int argc, char *argv[])
 {
-    TaskQueue tq(1);
+    TaskQueue tq(4, std::bind(&Init), std::bind(&Exit));
     Chan<int> c(10);
 
     tq.Push( [&c] {

@@ -13,17 +13,14 @@
 
 typedef std::function<void(void)> Task;
 
-typedef void (*ThreadInit)();
-
-class TaskQueueImpl;
 class TaskQueue {
 public:
-    TaskQueue(int thread, ThreadInit Init = NULL);
+    TaskQueue(int thread, const Task &initTask = []{}, const Task &exitTask = []{});
     ~TaskQueue();
     void Push(const Task &task, int delay = 0);
 
 private:
-    TaskQueueImpl *m_impl;
+    void *m_impl;
 };
 
 #endif

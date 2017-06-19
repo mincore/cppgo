@@ -27,7 +27,7 @@ static Time Now()
 
 class TaskQueueImpl {
 public:
-    TaskQueueImpl(int thread, ThreadInit init);
+    TaskQueueImpl(int thread, Task *initTask, Task *exitTask);
     ~TaskQueueImpl();
 
     void Push(Task *task, int delay);
@@ -49,10 +49,12 @@ private:
     std::list<Task*> m_taskList;
     std::multimap<Time, Task*> m_delayMap;
 
-    ThreadInit m_init;
+    Task* m_initTask;
+    Task* m_exitTask;
 };
 
-TaskQueueImpl::TaskQueueImpl(int thread, ThreadInit init): m_quit(false), m_init(init)
+TaskQueueImpl::TaskQueueImpl(int thread, Task *initTask, Task *exitTask):
+    m_quit(false), m_initTask(initTask), m_exitTask(exitTask)
 {
     for (int i=0; i<thread; i++) {
         m_threads.push_back(std::thread(&TaskQueueImpl::ThreadFunc, this));
@@ -75,6 +77,9 @@ TaskQueueImpl::~TaskQueueImpl()
     for (auto &item: m_delayMap) {
         delete item.second;
     }
+
+    delete m_initTask;
+    delete m_exitTask;
 }
 
 void TaskQueueImpl::Push(Task *task, int delay)
@@ -134,7 +139,6 @@ bool TaskQueueImpl::RunTask()
 
     if (task) {
         (*task)();
-        //task->Run();
         delete task;
     }
 
@@ -175,8 +179,7 @@ void TaskQueueImpl::WaitForTask()
 
 void TaskQueueImpl::ThreadFunc()
 {
-    if (m_init)
-        m_init();
+    (*m_initTask)();
 
     int more = 0;
     while (!m_quit) {
@@ -185,18 +188,21 @@ void TaskQueueImpl::ThreadFunc()
         if (!more)
             WaitForTask();
     }
+
+    (*m_exitTask)();
 }
 
-TaskQueue::TaskQueue(int thread, ThreadInit init):m_impl(new TaskQueueImpl(thread, init))
+TaskQueue::TaskQueue(int thread, const Task &initTask, const Task &exitTask):
+    m_impl(new TaskQueueImpl(thread, new Task(initTask), new Task(exitTask)))
 {
 }
 
 TaskQueue::~TaskQueue()
 {
-    delete m_impl;
+    delete (TaskQueueImpl*)m_impl;
 }
 
 void TaskQueue::Push(const Task &task, int delay)
 {
-    m_impl->Push(new Task(task), delay);
+    ((TaskQueueImpl*)m_impl)->Push(new Task(task), delay);
 }

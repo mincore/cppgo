@@ -1,3 +1,3 @@
-
 all:
-	g++ *.cpp -std=c++11 -lpthread -g
+	g++ *.cpp -std=c++11 -lpthread -g -Wall -Werror
+
